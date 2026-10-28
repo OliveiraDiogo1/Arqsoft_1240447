@@ -57,6 +57,16 @@ public interface SpringDataLendingRepository extends LendingRepository, LendingR
     List<Lending> listOutstandingByReaderNumber(@Param("readerNumber") String readerNumber);
 
     @Override
+    @Query("SELECT l " +
+            "FROM Lending l " +
+                "JOIN ReaderDetails r ON l.readerDetails.pk = r.pk " +
+            "WHERE r.readerNumber.readerNumber = :readerNumber " +
+                "AND l.returnedDate IS NOT NULL " +
+                "AND l.returnedDate >= :since")
+    List<Lending> listReturnedByReaderNumberSince(@Param("readerNumber") String readerNumber,
+                                                  @Param("since") LocalDate since);
+
+    @Override
     @Query(value =
             "SELECT AVG(DATEDIFF(day, l.start_date, l.returned_date)) " +
             "FROM Lending l"

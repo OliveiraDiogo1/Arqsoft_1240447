@@ -15,6 +15,7 @@ import pt.psoft.g1.psoftg1.exceptions.LendingForbiddenException;
 import pt.psoft.g1.psoftg1.genremanagement.model.Genre;
 import pt.psoft.g1.psoftg1.genremanagement.repositories.GenreRepository;
 import pt.psoft.g1.psoftg1.lendingmanagement.model.Lending;
+import pt.psoft.g1.psoftg1.lendingmanagement.model.policy.LendingPolicyType;
 import pt.psoft.g1.psoftg1.lendingmanagement.repositories.LendingRepository;
 import pt.psoft.g1.psoftg1.readermanagement.model.ReaderDetails;
 import pt.psoft.g1.psoftg1.readermanagement.repositories.ReaderRepository;
@@ -146,6 +147,86 @@ class LendingServiceImplTest {
         // Having an overdue lending
         assertThrows(LendingForbiddenException.class, () -> lendingService.create(request));
 
+    }
+
+    @Test
+    void createUsesStandardPolicyByDefault() {
+        var request = new CreateLendingRequest("9782826012092", LocalDate.now().getYear() + "/1");
+
+        var created = lendingService.create(request);
+
+        assertEquals(LendingPolicyType.STANDARD, created.getAppliedPolicy());
+        assertEquals(15, created.getAppliedPeriodDays());
+        assertEquals(LocalDate.now().plusDays(15), created.getLimitDate());
+    }
+
+    @Test
+    void createUsesAdaptivePolicyWhenHistoryMeetsSelectionRules() {
+        addReturnedLending(1001, LocalDate.now().minusMonths(2), LocalDate.now().minusMonths(2).plusDays(5));
+        addReturnedLending(1002, LocalDate.now().minusMonths(1), LocalDate.now().minusMonths(1).plusDays(5));
+        var request = new CreateLendingRequest("9782826012092", LocalDate.now().getYear() + "/1");
+
+        var created = lendingService.create(request);
+
+        assertEquals(LendingPolicyType.ADAPTIVE, created.getAppliedPolicy());
+        assertEquals(21, created.getAppliedPeriodDays());
+    }
+
+    @Test
+    void renewReevaluatesPolicyUsingCurrentActiveLendings() {
+        addReturnedLending(1003, LocalDate.now().minusMonths(2), LocalDate.now().minusMonths(2).plusDays(5));
+        addReturnedLending(1004, LocalDate.now().minusMonths(1), LocalDate.now().minusMonths(1).plusDays(5));
+        var request = new CreateLendingRequest("9782826012092", LocalDate.now().getYear() + "/1");
+        var created = lendingService.create(request);
+        LocalDate limitBeforeRenewal = created.getLimitDate();
+
+        var renewed = lendingService.renew(created.getLendingNumber(), created.getVersion());
+
+        assertEquals(LendingPolicyType.ADAPTIVE, renewed.getAppliedPolicy());
+        assertEquals(14, renewed.getAppliedPeriodDays());
+        assertEquals(1, renewed.getRenewalCount());
+        assertEquals(limitBeforeRenewal.plusDays(14), renewed.getLimitDate());
+    }
+
+    @Test
+    void renewRejectsReturnedLending() {
+        assertThrows(LendingForbiddenException.class,
+                () -> lendingService.renew(lending.getLendingNumber(), lending.getVersion()));
+    }
+
+    @Test
+    void policySnapshotShowsStandardWhenHistoryIsInsufficient() {
+        var snapshot = lendingService.getPolicySnapshot(LocalDate.now().getYear() + "/1");
+
+        assertEquals(LendingPolicyType.STANDARD, snapshot.policyType());
+        assertEquals(1, snapshot.completedLendings());
+        assertEquals(100.0, snapshot.onTimeRatioPercent());
+        assertEquals(15, snapshot.applicablePeriodDays());
+    }
+
+    @Test
+    void policySnapshotShowsAdaptiveWhenHistoryMeetsRules() {
+        addReturnedLending(1005, LocalDate.now().minusMonths(2), LocalDate.now().minusMonths(2).plusDays(5));
+        addReturnedLending(1006, LocalDate.now().minusMonths(1), LocalDate.now().minusMonths(1).plusDays(5));
+
+        var snapshot = lendingService.getPolicySnapshot(LocalDate.now().getYear() + "/1");
+
+        assertEquals(LendingPolicyType.ADAPTIVE, snapshot.policyType());
+        assertEquals(3, snapshot.completedLendings());
+        assertEquals(100.0, snapshot.onTimeRatioPercent());
+        assertEquals(21, snapshot.applicablePeriodDays());
+    }
+
+    private void addReturnedLending(int seq, LocalDate startDate, LocalDate returnedDate) {
+        lendingRepository.save(Lending.newBootstrappingLending(
+                book,
+                readerDetails,
+                LocalDate.now().getYear(),
+                seq,
+                startDate,
+                returnedDate,
+                15,
+                300));
     }
 
     @Test

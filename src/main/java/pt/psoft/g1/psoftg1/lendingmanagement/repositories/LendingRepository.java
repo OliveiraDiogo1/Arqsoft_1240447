@@ -12,6 +12,7 @@ public interface LendingRepository {
     List<Lending> listByReaderNumberAndIsbn(String readerNumber, String isbn);
     int getCountFromCurrentYear();
     List<Lending> listOutstandingByReaderNumber(String readerNumber);
+    List<Lending> listReturnedByReaderNumberSince(String readerNumber, LocalDate since);
     Double getAverageDuration();
     Double getAvgLendingDurationByIsbn(String isbn);
 

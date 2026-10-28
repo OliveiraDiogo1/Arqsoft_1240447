@@ -138,6 +138,65 @@ public class LendingController {
                 .body(lendingViewMapper.toLendingView(lending));
     }
 
+    @Operation(summary = "Renews a lending")
+    @PatchMapping(value = "/{year}/{seq}/renew")
+    public ResponseEntity<LendingView> renewLending(
+            final WebRequest request,
+            final Authentication authentication,
+            @PathVariable("year")
+                @Parameter(description = "The year component of the Lending to renew")
+                final Integer year,
+            @PathVariable("seq")
+                @Parameter(description = "The sequential component of the Lending to renew")
+                final Integer seq) {
+        final String ifMatchValue = request.getHeader(ConcurrencyService.IF_MATCH);
+        if (ifMatchValue == null || ifMatchValue.isEmpty() || ifMatchValue.equals("null")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "You must issue a conditional PATCH using 'if-match'");
+        }
+
+        final String lendingNumber = year + "/" + seq;
+        final var lending = lendingService.findByLendingNumber(lendingNumber)
+                .orElseThrow(() -> new NotFoundException(Lending.class, lendingNumber));
+
+        User loggedUser = userService.getAuthenticatedUser(authentication);
+        if (!(loggedUser instanceof Librarian)) {
+            final var loggedReaderDetails = readerService.findByUsername(loggedUser.getUsername())
+                    .orElseThrow(() -> new NotFoundException(ReaderDetails.class, loggedUser.getUsername()));
+            if (!Objects.equals(loggedReaderDetails.getReaderNumber(),
+                    lending.getReaderDetails().getReaderNumber())) {
+                throw new AccessDeniedException("Reader does not have permission to renew this lending");
+            }
+        }
+
+        final var renewed = lendingService.renew(lendingNumber,
+                concurrencyService.getVersionFromIfMatchHeader(ifMatchValue));
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/hal+json"))
+                .eTag(Long.toString(renewed.getVersion()))
+                .body(lendingViewMapper.toLendingView(renewed));
+    }
+
+    @Operation(summary = "Gets the lending policy currently applicable to a reader")
+    @GetMapping("/policies/{year}/{seq}")
+    public ResponseEntity<LendingPolicyView> getReaderPolicy(
+            final Authentication authentication,
+            @PathVariable("year") final Integer year,
+            @PathVariable("seq") final Integer seq) {
+        final String readerNumber = year + "/" + seq;
+        final User loggedUser = userService.getAuthenticatedUser(authentication);
+        if (!(loggedUser instanceof Librarian)) {
+            final var loggedReaderDetails = readerService.findByUsername(loggedUser.getUsername())
+                    .orElseThrow(() -> new NotFoundException(ReaderDetails.class, loggedUser.getUsername()));
+            if (!Objects.equals(loggedReaderDetails.getReaderNumber(), readerNumber)) {
+                throw new AccessDeniedException("Reader does not have permission to view this policy");
+            }
+        }
+
+        return ResponseEntity.ok(LendingPolicyView.from(lendingService.getPolicySnapshot(readerNumber)));
+    }
+
     @Operation(summary = "Get average lendings duration")
     @GetMapping(value = "/avgDuration")
     public @ResponseBody ResponseEntity<LendingsAverageDurationView> getAvgDuration() {

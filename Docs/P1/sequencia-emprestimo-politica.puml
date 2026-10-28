@@ -1,0 +1,33 @@
+@startuml
+title Criação de empréstimo com seleção de política
+
+actor "Bibliotecário" as Librarian
+participant "LendingController" as Controller
+participant "LendingServiceImpl" as Service
+participant "ReaderRepository" as ReaderRepo
+participant "LendingPolicyService" as PolicyService
+participant "LendingPolicySelector" as Selector
+participant "LendingPolicy" as Policy
+participant "LendingRepository" as LendingRepo
+database "Base de dados" as DB
+
+Librarian -> Controller : POST /api/lendings
+Controller -> Service : create(request)
+Service -> ReaderRepo : findByReaderNumberForUpdate(readerNumber)
+ReaderRepo -> DB : SELECT ... FOR UPDATE
+ReaderRepo --> Service : ReaderDetails
+Service -> LendingRepo : listOutstandingByReaderNumber(readerNumber)
+LendingRepo --> Service : empréstimos ativos
+Service -> PolicyService : decideForNewLending(readerNumber)
+PolicyService -> LendingRepo : listReturnedByReaderNumberSince(readerNumber, since)
+LendingRepo --> PolicyService : histórico devolvido
+PolicyService -> Selector : select(history)
+Selector --> PolicyService : STANDARD | ADAPTIVE
+PolicyService -> Policy : termsForNewLending(context)
+Policy --> PolicyService : LendingTerms
+PolicyService --> Service : LendingPolicyDecision
+Service -> LendingRepo : save(new Lending(...))
+LendingRepo -> DB : INSERT
+Service --> Controller : Lending
+Controller --> Librarian : 201 Created + LendingView
+@enduml

@@ -1,0 +1,33 @@
+@startuml
+title Renovação com reavaliação da política
+
+actor "Bibliotecário ou Leitor" as User
+participant "LendingController" as Controller
+participant "LendingServiceImpl" as Service
+participant "LendingRepository" as LendingRepo
+participant "ReaderRepository" as ReaderRepo
+participant "LendingPolicyService" as PolicyService
+participant "LendingPolicySelector" as Selector
+participant "LendingPolicy" as Policy
+database "Base de dados" as DB
+
+User -> Controller : PATCH /api/lendings/{year}/{seq}/renew\nIf-Match: versão
+Controller -> Service : renew(lendingNumber, version)
+Service -> LendingRepo : findByLendingNumber(lendingNumber)
+LendingRepo --> Service : Lending
+Service -> ReaderRepo : findByReaderNumberForUpdate(readerNumber)
+ReaderRepo -> DB : SELECT ... FOR UPDATE
+Service -> PolicyService : decideForRenewal(lending)
+PolicyService -> LendingRepo : listOutstandingByReaderNumber(readerNumber)
+PolicyService -> LendingRepo : listReturnedByReaderNumberSince(readerNumber, since)
+PolicyService -> Selector : select(history)
+Selector --> PolicyService : STANDARD | ADAPTIVE
+PolicyService -> Policy : termsForRenewal(context)
+Policy --> PolicyService : LendingTerms
+PolicyService --> Service : LendingPolicyDecision
+Service -> Service : lending.renew(periodDays, version, policy)
+Service -> LendingRepo : save(lending)
+LendingRepo -> DB : UPDATE
+Service --> Controller : Lending renovado
+Controller --> User : 200 OK + LendingView
+@enduml

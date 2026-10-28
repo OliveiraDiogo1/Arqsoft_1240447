@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import pt.psoft.g1.psoftg1.bookmanagement.repositories.BookRepository;
 import pt.psoft.g1.psoftg1.exceptions.LendingForbiddenException;
 import pt.psoft.g1.psoftg1.exceptions.NotFoundException;
@@ -14,6 +15,7 @@ import pt.psoft.g1.psoftg1.lendingmanagement.repositories.LendingRepository;
 import pt.psoft.g1.psoftg1.readermanagement.repositories.ReaderRepository;
 import pt.psoft.g1.psoftg1.shared.services.Page;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -28,9 +30,9 @@ public class LendingServiceImpl implements LendingService{
     private final FineRepository fineRepository;
     private final BookRepository bookRepository;
     private final ReaderRepository readerRepository;
+    private final LendingPolicyService lendingPolicyService;
+    private final Clock clock;
 
-    @Value("${lendingDurationInDays}")
-    private int lendingDurationInDays;
     @Value("${fineValuePerDayInCents}")
     private int fineValuePerDayInCents;
 
@@ -56,33 +58,53 @@ public class LendingServiceImpl implements LendingService{
     }
 
     @Override
+    @Transactional
     public Lending create(final CreateLendingRequest resource) {
-        int count = 0;
-
-        Iterable<Lending> lendingList = lendingRepository.listOutstandingByReaderNumber(resource.getReaderNumber());
-        for (Lending lending : lendingList) {
-            //Business rule: cannot create a lending if user has late outstanding books to return.
-            if (lending.getDaysDelayed() > 0) {
-                throw new LendingForbiddenException("Reader has book(s) past their due date");
-            }
-            count++;
-            //Business rule: cannot create a lending if user already has 3 outstanding books to return.
-            if (count >= 3) {
-                throw new LendingForbiddenException("Reader has three books outstanding already");
-            }
-        }
-
-        final var b = bookRepository.findByIsbn(resource.getIsbn())
-                .orElseThrow(() -> new NotFoundException("Book not found"));
-        final var r = readerRepository.findByReaderNumber(resource.getReaderNumber())
+        final var reader = readerRepository.findByReaderNumberForUpdate(resource.getReaderNumber())
                 .orElseThrow(() -> new NotFoundException("Reader not found"));
-        int seq = lendingRepository.getCountFromCurrentYear()+1;
-        final Lending l = new Lending(b,r,seq, lendingDurationInDays, fineValuePerDayInCents );
+        final var book = bookRepository.findByIsbn(resource.getIsbn())
+                .orElseThrow(() -> new NotFoundException("Book not found"));
 
-        return lendingRepository.save(l);
+        LendingPolicyDecision decision = lendingPolicyService.decideForNewLending(reader.getReaderNumber());
+        int seq = lendingRepository.getCountFromCurrentYear() + 1;
+        final Lending lending = new Lending(
+                book,
+                reader,
+                seq,
+                LocalDate.now(clock),
+                decision.terms().periodDays(),
+                fineValuePerDayInCents,
+                decision.policyType());
+
+        return lendingRepository.save(lending);
     }
 
     @Override
+    @Transactional
+    public Lending renew(final String lendingNumber, final long desiredVersion) {
+        final Lending lending = lendingRepository.findByLendingNumber(lendingNumber)
+                .orElseThrow(() -> new NotFoundException("Cannot find lending with this lending number"));
+
+        if (lending.isReturned()) {
+            throw new LendingForbiddenException("A returned lending cannot be renewed");
+        }
+
+        final var reader = readerRepository.findByReaderNumberForUpdate(lending.getReaderDetails().getReaderNumber())
+                .orElseThrow(() -> new NotFoundException("Reader not found"));
+
+        LendingPolicyDecision decision = lendingPolicyService.decideForRenewal(lending);
+        lending.renew(decision.terms().periodDays(), desiredVersion, decision.policyType());
+
+        return lendingRepository.save(lending);
+    }
+
+    @Override
+    public LendingPolicySnapshot getPolicySnapshot(final String readerNumber) {
+        return lendingPolicyService.snapshot(readerNumber);
+    }
+
+    @Override
+    @Transactional
     public Lending setReturned(final String lendingNumber, final SetLendingReturnedRequest resource, final long desiredVersion) {
 
         var lending = lendingRepository.findByLendingNumber(lendingNumber)

@@ -20,7 +20,9 @@ public interface LendingService {
      */
     List<Lending> listByReaderNumberAndIsbn(String readerNumber, String isbn, Optional<Boolean> returned);
     Lending create(CreateLendingRequest resource); //No ID passed, as it is auto generated
+    Lending renew(String lendingNumber, long desiredVersion);
     Lending setReturned(String id, SetLendingReturnedRequest resource, long desiredVersion);
+    LendingPolicySnapshot getPolicySnapshot(String readerNumber);
     Double getAverageDuration();
     List<Lending> getOverdue(Page page);
     Double getAvgLendingDurationByIsbn(String isbn);

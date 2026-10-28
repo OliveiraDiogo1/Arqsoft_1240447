@@ -1,0 +1,81 @@
+@startuml
+title Políticas de empréstimo — modelo de classes
+
+package "lendingmanagement.model.policy" {
+  enum LendingPolicyType {
+    STANDARD
+    ADAPTIVE
+  }
+
+  interface LendingPolicy {
+    +type(): LendingPolicyType
+    +termsForNewLending(context: LendingPolicyContext): LendingTerms
+    +termsForRenewal(context: LendingPolicyContext): LendingTerms
+  }
+
+  class StandardLendingPolicy
+  class AdaptiveLendingPolicy
+
+  record StandardPolicyConfig {
+    maxActiveLendings: int
+    lendingPeriodDays: int
+    maxRenewals: int
+    renewalPeriodDays: int
+  }
+
+  record AdaptivePolicyConfig {
+    maxActiveLendings: int
+    firstThreshold: int
+    secondThreshold: int
+    longPeriodDays: int
+    standardPeriodDays: int
+    shortPeriodDays: int
+    maxRenewals: int
+  }
+
+  record LendingPolicyContext {
+    activeLendings: int
+    hasOverdue: boolean
+    renewalCount: int
+  }
+
+  record LendingTerms {
+    periodDays: int
+  }
+
+  record LendingHistory {
+    completedLendings: int
+    onTimeLendings: int
+    hasOverdue: boolean
+    +onTimeRatioPercent(): double
+  }
+
+  record SelectionConfig {
+    historyPeriodMonths: int
+    minCompletedLendings: int
+    minOnTimeRatioPercent: double
+  }
+
+  interface LendingPolicySelectionRule {
+    +select(history: LendingHistory): Optional<LendingPolicyType>
+    +order(): int
+  }
+
+  class AdaptiveSelectionRule
+  class StandardDefaultRule
+  class LendingPolicySelector
+  class LendingPolicyRegistry
+}
+
+StandardLendingPolicy ..|> LendingPolicy
+AdaptiveLendingPolicy ..|> LendingPolicy
+StandardLendingPolicy --> StandardPolicyConfig
+AdaptiveLendingPolicy --> AdaptivePolicyConfig
+LendingPolicy ..> LendingPolicyContext
+LendingPolicy ..> LendingTerms
+AdaptiveSelectionRule ..|> LendingPolicySelectionRule
+StandardDefaultRule ..|> LendingPolicySelectionRule
+AdaptiveSelectionRule --> SelectionConfig
+LendingPolicySelector o-- LendingPolicySelectionRule
+LendingPolicyRegistry o-- LendingPolicy
+@enduml

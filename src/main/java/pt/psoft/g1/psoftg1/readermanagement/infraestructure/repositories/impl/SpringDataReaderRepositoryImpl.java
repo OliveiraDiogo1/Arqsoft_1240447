@@ -1,11 +1,13 @@
 package pt.psoft.g1.psoftg1.readermanagement.infraestructure.repositories.impl;
 
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.query.Param;
@@ -30,6 +32,13 @@ public interface SpringDataReaderRepositoryImpl extends ReaderRepository, Reader
             "FROM ReaderDetails r " +
             "WHERE r.readerNumber.readerNumber = :readerNumber")
     Optional<ReaderDetails> findByReaderNumber(@Param("readerNumber") @NotNull String readerNumber);
+
+    @Override
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r " +
+            "FROM ReaderDetails r " +
+            "WHERE r.readerNumber.readerNumber = :readerNumber")
+    Optional<ReaderDetails> findByReaderNumberForUpdate(@Param("readerNumber") @NotNull String readerNumber);
 
     @Override
     @Query("SELECT r " +

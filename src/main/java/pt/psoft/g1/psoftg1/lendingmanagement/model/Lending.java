@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import org.hibernate.StaleObjectStateException;
 import pt.psoft.g1.psoftg1.bookmanagement.model.Book;
+import pt.psoft.g1.psoftg1.lendingmanagement.model.policy.LendingPolicyType;
 import pt.psoft.g1.psoftg1.readermanagement.model.ReaderDetails;
 
 import java.time.LocalDate;
@@ -117,30 +118,47 @@ public class Lending {
     @Getter
     private int fineValuePerDayInCents;
 
+    /** Número de vezes que este empréstimo foi renovado. */
+    private Integer renewalCount = 0;
+
+    /** Política aplicada na criação ou na última renovação. */
+    @Enumerated(EnumType.STRING)
+    @Getter
+    private LendingPolicyType appliedPolicy;
+
+    /** Período, em dias, concedido pela política na criação ou na última renovação. */
+    private Integer appliedPeriodDays;
+
 
     /**
-     * Constructs a new {@code Lending} object to be persisted in the database.
-     * <p>
-     * Sets {@code startDate} as the current date, and {@code limitDate} as the current date plus the
-     * business specified number of days a reader can take to return the book ({@link Lending#MAX_DAYS_PER_LENDING}).
-     *
-     * @param       book {@code Book} object, which should be retrieved from the database.
-     * @param       readerDetails {@code Reader} object, which should be retrieved from the database.
-     * @param       seq sequential number, which should be obtained from the year's count on the database.
-     * @throws      NullPointerException if any of the arguments is {@code null}
-     * */
-    public Lending(Book book, ReaderDetails readerDetails, int seq, int lendingDuration, int fineValuePerDayInCents){
+     * Cria um novo empréstimo com a data atual e a política Standard.
+     */
+    public Lending(Book book, ReaderDetails readerDetails, int seq, int lendingDuration, int fineValuePerDayInCents) {
+        this(book, readerDetails, seq, LocalDate.now(), lendingDuration, fineValuePerDayInCents,
+                LendingPolicyType.STANDARD);
+    }
+
+    /**
+     * Cria um novo empréstimo para a data e a política indicadas.
+     */
+    public Lending(Book book, ReaderDetails readerDetails, int seq, LocalDate startDate, int lendingDuration,
+                   int fineValuePerDayInCents, LendingPolicyType appliedPolicy) {
         try {
             this.book = Objects.requireNonNull(book);
             this.readerDetails = Objects.requireNonNull(readerDetails);
-        }catch (NullPointerException e){
+        } catch (NullPointerException e) {
             throw new IllegalArgumentException("Null objects passed to lending");
         }
+        if (lendingDuration <= 0) {
+            throw new IllegalArgumentException("Lending duration must be positive");
+        }
         this.lendingNumber = new LendingNumber(seq);
-        this.startDate = LocalDate.now();
-        this.limitDate = LocalDate.now().plusDays(lendingDuration);
+        this.startDate = Objects.requireNonNull(startDate);
+        this.limitDate = startDate.plusDays(lendingDuration);
         this.returnedDate = null;
         this.fineValuePerDayInCents = fineValuePerDayInCents;
+        this.appliedPolicy = Objects.requireNonNull(appliedPolicy);
+        this.appliedPeriodDays = lendingDuration;
         setDaysUntilReturn();
         setDaysOverdue();
     }
@@ -167,6 +185,46 @@ public class Lending {
             this.commentary = commentary;
 
         this.returnedDate = LocalDate.now();
+    }
+
+    /**
+     * Renova o empréstimo com o período e a política indicados.
+     * O prazo atual é estendido e o contador de renovações é incrementado.
+     */
+    public void renew(int renewalPeriodDays, long desiredVersion, LendingPolicyType policy) {
+        if (this.returnedDate != null) {
+            throw new IllegalArgumentException("A returned lending cannot be renewed");
+        }
+        if (this.version != desiredVersion) {
+            throw new StaleObjectStateException("Object was already modified by another user", this.pk);
+        }
+        if (renewalPeriodDays <= 0) {
+            throw new IllegalArgumentException("Renewal period must be positive");
+        }
+        this.renewalCount = getRenewalCount() + 1;
+        this.limitDate = this.limitDate.plusDays(renewalPeriodDays);
+        this.appliedPolicy = Objects.requireNonNull(policy);
+        this.appliedPeriodDays = renewalPeriodDays;
+    }
+
+    public int getRenewalCount() {
+        return this.renewalCount == null ? 0 : this.renewalCount;
+    }
+
+    public int getAppliedPeriodDays() {
+        return this.appliedPeriodDays == null ? 0 : this.appliedPeriodDays;
+    }
+
+    public boolean isReturned() {
+        return this.returnedDate != null;
+    }
+
+    public boolean isOverdue(LocalDate referenceDate) {
+        return this.returnedDate == null && this.limitDate.isBefore(referenceDate);
+    }
+
+    public boolean isOnTime() {
+        return this.returnedDate != null && !this.returnedDate.isAfter(this.limitDate);
     }
 
     /**
@@ -255,6 +313,9 @@ public class Lending {
         lending.limitDate = startDate.plusDays(lendingDuration);
         lending.fineValuePerDayInCents = fineValuePerDayInCents;
         lending.returnedDate = returnedDate;
+        lending.appliedPolicy = LendingPolicyType.STANDARD;
+        lending.appliedPeriodDays = lendingDuration;
+        lending.renewalCount = 0;
         return lending;
 
     }

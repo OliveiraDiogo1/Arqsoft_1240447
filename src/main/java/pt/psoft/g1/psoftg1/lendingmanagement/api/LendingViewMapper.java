@@ -25,6 +25,8 @@ public abstract class LendingViewMapper extends MapperInterface {
     @Mapping(target = "_links.book", source = "book", qualifiedByName = "bookLink")
     @Mapping(target = "returnedDate", source = "returnedDate")
     @Mapping(target = "_links.reader", source = "readerDetails", qualifiedByName = "readerLink")
+    @Mapping(target = "renewalCount", expression = "java(lending.getRenewalCount())")
+    @Mapping(target = "appliedPeriodDays", expression = "java(lending.getAppliedPeriodDays())")
     public abstract LendingView toLendingView(Lending lending);
 
     public abstract List<LendingView> toLendingView(List<Lending> lendings);

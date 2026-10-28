@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
+import pt.psoft.g1.psoftg1.lendingmanagement.model.policy.LendingPolicyType;
 
 import java.time.LocalDate;
 
@@ -31,6 +32,12 @@ public class LendingView {
     private Integer daysOverdue;
 
     private Integer fineValueInCents;
+
+    private int renewalCount;
+
+    private LendingPolicyType appliedPolicy;
+
+    private int appliedPeriodDays;
 
     @Setter
     @Getter
