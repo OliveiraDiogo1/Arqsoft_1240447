@@ -1,0 +1,36 @@
+@startuml
+title Notificação após operação de empréstimo
+
+participant LendingServiceImpl as LendingService
+participant NotificationServiceImpl as NotificationService
+participant LendingNotificationFactory as Factory
+participant NotificationSenderRegistry as Registry
+participant EmailNotificationSender as Email
+participant SmsNotificationSender as SMS
+participant WebhookNotificationSender as Webhook
+participant LoggingNotificationSender as Log
+
+LendingService -> NotificationService : notify(emprestimo, tipo)
+NotificationService -> Factory : create(emprestimo, tipo)
+Factory --> NotificationService : LendingNotificationEvent
+NotificationService -> Registry : selected()
+Registry --> NotificationService : canais ativos
+
+loop para cada canal ativo
+  alt email com contacto disponível
+    NotificationService -> Email : send(event)
+    Email --> NotificationService : concluído ou falha isolada
+  else SMS com contacto disponível
+    NotificationService -> SMS : send(event)
+    SMS --> NotificationService : concluído ou falha isolada
+  else webhook com consentimento
+    NotificationService -> Webhook : send(event)
+    Webhook --> NotificationService : concluído ou falha isolada
+  else canal log
+    NotificationService -> Log : send(event)
+    Log --> NotificationService : registado
+  end
+end
+
+NotificationService --> LendingService : operação mantém-se concluída
+@enduml

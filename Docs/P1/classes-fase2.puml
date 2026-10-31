@@ -1,0 +1,101 @@
+@startuml
+title Fontes bibliográficas e notificações — modelo de classes
+
+package "bibliographicmanagement.model" {
+  interface BibliographicSource {
+    +name(): String
+    +findByIsbn(isbn: String): Optional<BibliographicRecord>
+  }
+
+  record BibliographicRecord {
+    isbn: String
+    title: String
+    authors: List<String>
+    sources: List<String>
+    failedSources: List<String>
+  }
+}
+
+package "bibliographicmanagement.infrastructure" {
+  class GoogleBooksBibliographicSource
+  class OpenLibraryBibliographicSource
+}
+
+package "bibliographicmanagement.services" {
+  interface BibliographicService {
+    +lookup(isbn: String): Optional<BibliographicRecord>
+  }
+
+  class BibliographicServiceImpl
+  class BibliographicSourceRegistry {
+    +selected(): List<BibliographicSource>
+  }
+}
+
+package "bibliographicmanagement.api" {
+  class BibliographicController {
+    +lookup(isbn: String): ResponseEntity<BibliographicRecordView>
+  }
+
+  record BibliographicRecordView
+}
+
+package "notificationmanagement.model" {
+  interface NotificationSender {
+    +channel(): String
+    +validateConfiguration(): void
+    +send(event: LendingNotificationEvent): void
+  }
+
+  class LendingNotificationEvent
+  enum NotificationEventType {
+    LENDING_CREATED
+    LENDING_RENEWED
+    LENDING_RETURNED
+  }
+}
+
+package "notificationmanagement.infrastructure" {
+  class EmailNotificationSender
+  class SmsNotificationSender
+  class WebhookNotificationSender
+  class LoggingNotificationSender
+}
+
+package "notificationmanagement.services" {
+  interface NotificationService {
+    +notify(lending: Lending, type: NotificationEventType): void
+  }
+
+  class NotificationServiceImpl
+  class NotificationSenderRegistry {
+    +selected(): List<NotificationSender>
+  }
+  class LendingNotificationFactory {
+    +create(lending: Lending, type: NotificationEventType): LendingNotificationEvent
+  }
+}
+
+class LendingServiceImpl
+
+GoogleBooksBibliographicSource ..|> BibliographicSource
+OpenLibraryBibliographicSource ..|> BibliographicSource
+BibliographicServiceImpl ..|> BibliographicService
+BibliographicServiceImpl --> BibliographicSourceRegistry
+BibliographicServiceImpl ..> BibliographicRecord
+BibliographicSourceRegistry o-- BibliographicSource
+BibliographicController --> BibliographicService
+BibliographicController ..> BibliographicRecordView
+
+EmailNotificationSender ..|> NotificationSender
+SmsNotificationSender ..|> NotificationSender
+WebhookNotificationSender ..|> NotificationSender
+LoggingNotificationSender ..|> NotificationSender
+NotificationServiceImpl ..|> NotificationService
+NotificationServiceImpl --> LendingNotificationFactory
+NotificationServiceImpl --> NotificationSenderRegistry
+NotificationSenderRegistry o-- NotificationSender
+LendingNotificationFactory ..> LendingNotificationEvent
+LendingNotificationEvent --> NotificationEventType
+LendingServiceImpl --> NotificationService
+@enduml

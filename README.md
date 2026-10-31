@@ -10,13 +10,13 @@ do projeto original não é reutilizado.
 
 - Base importada e a compilar.
 - Fase 1 (políticas de empréstimo) implementada.
-- `mvn test` executa 138 testes, todos verdes.
-- A Fase 2 (fontes bibliográficas e notificações) ainda não foi implementada.
+- `mvn clean test` executa 174 testes, todos verdes.
+- Fase 2 (fontes bibliográficas e notificações) implementada.
 
 ## Como validar
 
 ```bash
-mvn test
+mvn clean test
 ```
 
 Para arrancar a aplicação sem depender do servidor H2 TCP configurado no base:
@@ -121,8 +121,8 @@ interpretar o ponto 3.6 da especificação de outra forma.
 
 ## Fase 2 — Fontes bibliográficas e notificações
 
-Estado: desenho aprovado; especificação em revisão; implementação ainda não
-iniciada.
+Estado: implementada. A consulta bibliográfica e os canais de notificação estão
+integrados no serviço, com fontes e canais selecionáveis por configuração.
 
 ### Objetivo
 
@@ -278,6 +278,10 @@ empréstimos não muda.
 - `LendingServiceImplTest`: confirma que a notificação é chamada nas três
   operações.
 
+Validação integral: `mvn clean test` — 174 testes, 0 falhas, 0 erros e 0 ignorados.
+Os testes dos adaptadores HTTP usam `MockRestServiceServer`, sem chamadas às APIs
+externas reais.
+
 ### Critérios de aceitação
 
 - É possível escolher uma ou várias fontes por configuração.
@@ -288,7 +292,7 @@ empréstimos não muda.
 - Um canal novo não obriga a alterar `LendingServiceImpl`.
 - Criar, renovar e devolver um empréstimo gera os eventos esperados.
 - Uma falha de notificação não desfaz a operação de empréstimo.
-- Os testes novos passam e os 138 testes anteriores continuam verdes.
+- Os testes novos e os anteriores passam: 174 testes no total.
 
 ### Limitações assumidas
 
@@ -299,6 +303,12 @@ empréstimos não muda.
 - Não há persistência de notificações nem reenvio automático.
 - A notificação de atraso fica para a fase seguinte.
 
+### Diagramas
+
+- [Classes da Fase 2](Docs/P1/classes-fase2.puml)
+- [Sequência de consulta bibliográfica](Docs/P1/sequencia-bibliografico.puml)
+- [Sequência de notificação](Docs/P1/sequencia-notificacao.puml)
+
 ## Estrutura
 
 ```
@@ -307,6 +317,8 @@ src/main/java/pt/psoft/g1/psoftg1/
 ├── bookmanagement
 ├── genremanagement
 ├── lendingmanagement
+├── bibliographicmanagement
+├── notificationmanagement
 ├── readermanagement
 ├── usermanagement
 ├── shared
@@ -319,8 +331,8 @@ src/main/java/pt/psoft/g1/psoftg1/
 
 1. **Concluída** — Políticas de empréstimo Standard e Adaptive, com configuração
    externa e renovação.
-2. **Especificada** — Fontes bibliográficas Google Books/Open Library e
-   notificações por email, SMS e webhook.
+2. **Concluída** — Fontes bibliográficas Google Books/Open Library e notificações
+   por email, SMS, webhook e log.
 3. Testes funcionais de caixa opaca, caixa transparente, mutação, componentes e
    sistema.
 4. SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.

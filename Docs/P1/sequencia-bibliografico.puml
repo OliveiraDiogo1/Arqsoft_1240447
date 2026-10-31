@@ -1,0 +1,45 @@
+@startuml
+title Consulta bibliográfica por ISBN
+
+actor "Leitor ou bibliotecário" as Client
+participant BibliographicController as Controller
+participant BibliographicServiceImpl as Service
+participant BibliographicSourceRegistry as Registry
+participant GoogleBooksBibliographicSource as Google
+participant "Google Books API" as GoogleAPI
+participant OpenLibraryBibliographicSource as OpenLibrary
+participant "Open Library API" as OpenAPI
+participant GlobalExceptionHandler as Errors
+
+Client -> Controller : GET /api/books/{isbn}/bibliographic
+Controller -> Service : lookup(isbn)
+Service -> Registry : selected()
+Registry --> Service : fontes ativas, pela ordem configurada
+
+loop para cada fonte ativa, pela ordem definida
+  alt Google Books
+    Service -> Google : findByIsbn(isbn normalizado)
+    Google -> GoogleAPI : GET /volumes?q=isbn:{isbn}
+    GoogleAPI --> Google : resposta JSON
+    Google --> Service : Optional<BibliographicRecord>
+  else Open Library
+    Service -> OpenLibrary : findByIsbn(isbn normalizado)
+    OpenLibrary -> OpenAPI : GET /api/books?bibkeys=ISBN:{isbn}
+    OpenAPI --> OpenLibrary : resposta JSON
+    OpenLibrary --> Service : Optional<BibliographicRecord>
+  end
+end
+
+alt existe pelo menos um registo
+  Service -> Service : merge dos campos e união de autores/categorias
+  Service --> Controller : BibliographicRecord (inclui falhas parciais)
+  Controller --> Client : 200 OK + BibliographicRecordView
+else nenhuma fonte devolve dados
+  Service --> Controller : Optional.empty()
+  Controller -> Errors : NotFoundException
+  Errors --> Client : 404 Not Found
+else todas as fontes falham
+  Service -> Errors : BibliographicSourceException
+  Errors --> Client : 502 Bad Gateway
+end
+@enduml
