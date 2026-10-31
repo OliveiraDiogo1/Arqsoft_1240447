@@ -30,6 +30,7 @@ public class BibliographicServiceImpl implements BibliographicService {
         List<BibliographicRecord> records = new ArrayList<>();
         List<String> failedSources = new ArrayList<>();
         Set<String> contributingSources = new LinkedHashSet<>();
+        Throwable firstFailure = null;
 
         for (BibliographicSource source : selected) {
             try {
@@ -40,12 +41,19 @@ public class BibliographicServiceImpl implements BibliographicService {
                 }
             } catch (RuntimeException e) {
                 failedSources.add(source.name());
+                if (firstFailure == null) {
+                    firstFailure = e;
+                }
             }
         }
 
         if (records.isEmpty()) {
             if (failedSources.size() == selected.size()) {
-                throw new BibliographicSourceException("All bibliographic sources failed for ISBN " + normalized);
+                String message = "All bibliographic sources failed for ISBN " + normalized
+                        + " (failed sources: " + String.join(", ", failedSources) + ")";
+                throw firstFailure == null
+                        ? new BibliographicSourceException(message)
+                        : new BibliographicSourceException(message, firstFailure);
             }
             return Optional.empty();
         }

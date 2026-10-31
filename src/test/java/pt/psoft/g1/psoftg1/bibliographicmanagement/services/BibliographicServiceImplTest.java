@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -55,7 +56,10 @@ class BibliographicServiceImplTest {
     void allSourcesFailingThrowsBibliographicSourceException() {
         var service = new BibliographicServiceImpl(registryOf(
                 sourceThatThrows("google-books"), sourceThatThrows("open-library")));
-        assertThrows(BibliographicSourceException.class, () -> service.lookup("9789720706386"));
+        var ex = assertThrows(BibliographicSourceException.class, () -> service.lookup("9789720706386"));
+        assertTrue(ex.getMessage().contains("google-books"));
+        assertTrue(ex.getMessage().contains("open-library"));
+        assertNotNull(ex.getCause());
     }
 
     @Test
