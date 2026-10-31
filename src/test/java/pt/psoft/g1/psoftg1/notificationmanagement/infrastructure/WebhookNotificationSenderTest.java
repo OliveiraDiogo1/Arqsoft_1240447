@@ -5,6 +5,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 import pt.psoft.g1.psoftg1.notificationmanagement.configuration.NotificationProperties;
+import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationDeliveryException;
 import pt.psoft.g1.psoftg1.notificationmanagement.model.LendingNotificationEvent;
 import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationEventType;
 
@@ -18,6 +19,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class WebhookNotificationSenderTest {
@@ -54,6 +56,19 @@ class WebhookNotificationSenderTest {
                 new NotificationProperties.Webhook("", ""));
 
         assertThrows(IllegalStateException.class, sender::validateConfiguration);
+    }
+
+    @Test
+    void wrapsGatewayErrorsAsDeliveryFailures() {
+        var restTemplate = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(requestTo("https://hook.example/events"))
+                .andRespond(withServerError());
+        var sender = new WebhookNotificationSender(restTemplate,
+                new NotificationProperties.Webhook("https://hook.example/events", ""));
+
+        assertThrows(NotificationDeliveryException.class, () -> sender.send(event()));
+        server.verify();
     }
 
     private LendingNotificationEvent event() {

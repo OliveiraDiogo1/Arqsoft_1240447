@@ -6,9 +6,11 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import pt.psoft.g1.psoftg1.notificationmanagement.configuration.NotificationProperties;
 import pt.psoft.g1.psoftg1.notificationmanagement.model.LendingNotificationEvent;
+import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationDeliveryException;
 import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationSender;
 
 import java.util.LinkedHashMap;
@@ -60,7 +62,11 @@ public class WebhookNotificationSender implements NotificationSender {
         if (properties.secret() != null && !properties.secret().isBlank()) {
             headers.set("X-Notification-Secret", properties.secret());
         }
-        restTemplate.exchange(properties.url(), HttpMethod.POST,
-                new HttpEntity<>(payload, headers), Void.class);
+        try {
+            restTemplate.exchange(properties.url(), HttpMethod.POST,
+                    new HttpEntity<>(payload, headers), Void.class);
+        } catch (RestClientException exception) {
+            throw new NotificationDeliveryException("Webhook notification delivery failed", exception);
+        }
     }
 }
