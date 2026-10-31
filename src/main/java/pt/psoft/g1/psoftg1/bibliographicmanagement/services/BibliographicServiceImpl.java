@@ -1,5 +1,6 @@
 package pt.psoft.g1.psoftg1.bibliographicmanagement.services;
 
+import org.springframework.stereotype.Service;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.model.BibliographicRecord;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.model.BibliographicSource;
 import pt.psoft.g1.psoftg1.bookmanagement.model.Isbn;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+@Service
 public class BibliographicServiceImpl implements BibliographicService {
 
     private final BibliographicSourceRegistry registry;

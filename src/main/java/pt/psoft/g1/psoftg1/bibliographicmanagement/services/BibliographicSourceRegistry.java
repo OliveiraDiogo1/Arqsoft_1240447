@@ -1,5 +1,6 @@
 package pt.psoft.g1.psoftg1.bibliographicmanagement.services;
 
+import org.springframework.stereotype.Component;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.configuration.BibliographicProperties;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.model.BibliographicSource;
 
@@ -7,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Component
 public final class BibliographicSourceRegistry {
 
     private final Map<String, BibliographicSource> sourcesByName = new LinkedHashMap<>();

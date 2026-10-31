@@ -122,6 +122,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 				.body(new ApiCallError<>("Not found", List.of(ex.getMessage())));
 	}
 
+	@ExceptionHandler(BibliographicSourceException.class)
+	@ResponseStatus(HttpStatus.BAD_GATEWAY)
+	public ResponseEntity<ApiCallError<String>> handleBibliographicSourceException(
+			final HttpServletRequest request, final BibliographicSourceException ex) {
+		logger.error("BibliographicSourceException {}\n", request.getRequestURI(), ex);
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+				.body(new ApiCallError<>("Bibliographic source unavailable", List.of(ex.getMessage())));
+	}
+
 	@ExceptionHandler(ValidationException.class)
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	public ResponseEntity<ApiCallError<String>> handleValidationException(final HttpServletRequest request,
