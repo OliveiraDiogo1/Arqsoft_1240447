@@ -119,6 +119,186 @@ interpretar o ponto 3.6 da especificação de outra forma.
 - [Sequência de criação de empréstimo](Docs/P1/sequencia-emprestimo-politica.puml)
 - [Sequência de renovação](Docs/P1/sequencia-renovacao.puml)
 
+## Fase 2 — Fontes bibliográficas e notificações
+
+Estado: desenho aprovado; especificação em revisão; implementação ainda não
+iniciada.
+
+### Objetivo
+
+Cumprir os pontos 1.3.3.1 e 1.3.3.2 do enunciado:
+
+- obter informação bibliográfica de livros a partir de sistemas externos;
+- escolher, no arranque, as fontes usadas, podendo usar mais do que uma;
+- suportar fontes novas com impacto limitado no código existente;
+- notificar leitores de eventos de empréstimo por email, SMS e webhook,
+  individualmente ou em combinação;
+- escolher, no arranque, os canais usados;
+- suportar canais novos com impacto limitado no código existente.
+
+Esta fase não cria nem atualiza livros no LMS. A recolha bibliográfica é apenas
+de consulta. Também não inclui notificações agendadas de atraso, persistência de
+notificações, testes de mutação nem testes de sistema; esses pontos ficam para
+fases posteriores.
+
+### Bibliográfico
+
+Novo módulo `bibliographicmanagement`:
+
+- `model/BibliographicRecord` — registo normalizado com ISBN, título, autores,
+  descrição, editora, data de publicação, número de páginas, categorias, capa e
+  fontes que contribuíram.
+- `model/BibliographicSource` — porta com `name()` e `findByIsbn(String)`.
+- `infrastructure/GoogleBooksBibliographicSource` — adaptador para
+  `https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn}`.
+- `infrastructure/OpenLibraryBibliographicSource` — adaptador para
+  `https://openlibrary.org/api/books?bibkeys=ISBN:{isbn}&format=json&jscmd=data`.
+- `services/BibliographicSourceRegistry` — valida os nomes configurados e
+  mantém a ordem definida.
+- `services/BibliographicServiceImpl` — consulta as fontes ativas, junta os
+  resultados e isola falhas parciais.
+- `api/BibliographicController` — expõe a consulta.
+- `api/BibliographicRecordView` — resposta HTTP.
+
+Endpoint:
+
+```
+GET /api/books/{isbn}/bibliographic
+```
+
+Acesso: leitor ou bibliotecário. O livro não precisa de existir no LMS; a
+consulta é externa. O ISBN é normalizado e validado com `Isbn`.
+
+Regras de composição:
+
+- o título, a descrição, a editora, a data, as páginas e a capa vêm da primeira
+  fonte, pela ordem configurada, que tenha o campo preenchido;
+- os autores e as categorias são unidos sem duplicados;
+- a resposta indica as fontes que contribuíram e as que falharam;
+- se nenhuma fonte tiver dados, a resposta é `404`;
+- se todas as fontes falharem por erro externo, a resposta é `502`;
+- se uma fonte falhar e outra responder, a resposta é `200` com aviso.
+
+Configuração:
+
+```properties
+bibliographic.sources=google-books,open-library
+bibliographic.google-books.base-url=https://www.googleapis.com/books/v1
+bibliographic.google-books.api-key=${GOOGLE_BOOKS_API_KEY:}
+bibliographic.open-library.base-url=https://openlibrary.org
+bibliographic.http.connect-timeout-ms=2000
+bibliographic.http.read-timeout-ms=5000
+```
+
+As fontes são lidas no arranque. Um nome desconhecido impede o arranque. Uma
+fonte nova é uma nova implementação de `BibliographicSource` registada como
+bean; o serviço e o controller não mudam.
+
+### Notificações
+
+Novo módulo `notificationmanagement`:
+
+- `model/LendingNotificationEvent` — tipo, número de empréstimo, leitor, livro,
+  datas, contactos e consentimento de partilha com terceiros.
+- `model/NotificationSender` — porta com `channel()` e `send(event)`.
+- `infrastructure/EmailNotificationSender` — `JavaMailSender`.
+- `infrastructure/SmsNotificationSender` — POST HTTP para um gateway SMS
+  configurável.
+- `infrastructure/WebhookNotificationSender` — POST JSON para um URL
+  configurável.
+- `infrastructure/LoggingNotificationSender` — canal `log`, usado na demonstração
+  local sem credenciais externas.
+- `services/NotificationServiceImpl` — envia para os canais ativos e isola
+  falhas.
+- `services/LendingNotificationFactory` — converte `Lending` no evento.
+
+Eventos:
+
+- `LENDING_CREATED`;
+- `LENDING_RENEWED`;
+- `LENDING_RETURNED`.
+
+O `LendingServiceImpl` publica o evento depois de guardar a operação. A
+notificação é best-effort: uma falha externa é registada e não reverte a criação,
+renovação ou devolução.
+
+Regras de envio:
+
+- email para o username do leitor, que é o email no modelo existente;
+- SMS para o telefone do leitor;
+- webhook apenas se o leitor tiver `thirdPartySharingConsent`; o payload não
+  inclui email nem telefone, apenas número de leitor, empréstimo, ISBN, título e
+  datas;
+- canais sem contacto válido são ignorados;
+- um canal que falhe não impede os restantes.
+
+Configuração:
+
+```properties
+notifications.channels=log
+notifications.email.from=no-reply@example.invalid
+notifications.sms.url=
+notifications.sms.api-key=
+notifications.sms.sender=
+notifications.webhook.url=
+notifications.webhook.secret=
+```
+
+O canal `email` usa a configuração `spring.mail.*`. O SMS faz `POST` para
+`notifications.sms.url` com `{"to": "...", "sender": "...", "message": "..."}` e,
+se existir, `Authorization: Bearer <api-key>`. O webhook faz `POST` para
+`notifications.webhook.url` com o evento em JSON e, se existir,
+`X-Notification-Secret`. Se um canal obrigatório for selecionado sem a
+configuração necessária, o arranque falha com uma mensagem clara. Um canal novo é
+uma nova implementação de `NotificationSender`, registada como bean; o serviço de
+empréstimos não muda.
+
+### Integração e segurança
+
+- `LendingServiceImpl` passa a receber `NotificationService` e notifica após
+  `create`, `renew` e `setReturned`.
+- `SecurityConfig` autoriza `GET /api/books/*/bibliographic` para leitor e
+  bibliotecário.
+- Não há alterações ao esquema da base de dados.
+- As chamadas externas têm timeouts e não bloqueiam a operação por tempo
+  indeterminado.
+
+### Testes
+
+- `GoogleBooksBibliographicSourceTest` e `OpenLibraryBibliographicSourceTest`:
+  mapeamento, resposta vazia e erro HTTP.
+- `BibliographicServiceImplTest`: ordem das fontes, composição, falha parcial,
+  falha total e ISBN inválido.
+- `BibliographicControllerTest`: `200`, `404`, `502` e resposta normalizada.
+- `NotificationServiceImplTest`: canais ativos, contactos em falta, consentimento
+  do webhook e isolamento de falhas.
+- `LendingNotificationFactoryTest`: criação, renovação e devolução.
+- `EmailNotificationSenderTest`, `SmsNotificationSenderTest` e
+  `WebhookNotificationSenderTest`: conteúdo e configuração.
+- `LendingServiceImplTest`: confirma que a notificação é chamada nas três
+  operações.
+
+### Critérios de aceitação
+
+- É possível escolher uma ou várias fontes por configuração.
+- Uma fonte nova não obriga a alterar `BibliographicServiceImpl`.
+- O endpoint devolve dados normalizados e distingue ausência de dados de falha
+  externa.
+- É possível escolher um ou vários canais por configuração.
+- Um canal novo não obriga a alterar `LendingServiceImpl`.
+- Criar, renovar e devolver um empréstimo gera os eventos esperados.
+- Uma falha de notificação não desfaz a operação de empréstimo.
+- Os testes novos passam e os 138 testes anteriores continuam verdes.
+
+### Limitações assumidas
+
+- Não há credenciais reais de SMTP, SMS ou webhook; o canal predefinido é `log`.
+- O email usa o username do leitor; o modelo atual não tem um campo de email
+  separado.
+- As fontes externas podem mudar o formato ou impor quotas.
+- Não há persistência de notificações nem reenvio automático.
+- A notificação de atraso fica para a fase seguinte.
+
 ## Estrutura
 
 ```
@@ -139,7 +319,8 @@ src/main/java/pt/psoft/g1/psoftg1/
 
 1. **Concluída** — Políticas de empréstimo Standard e Adaptive, com configuração
    externa e renovação.
-2. Integração com Google Books e Open Library através de portas e adaptadores.
-3. Notificações por email, SMS e webhook, configuráveis e extensíveis.
-4. Testes funcionais de caixa opaca, caixa transparente, mutação, componentes e sistema.
-5. SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.
+2. **Especificada** — Fontes bibliográficas Google Books/Open Library e
+   notificações por email, SMS e webhook.
+3. Testes funcionais de caixa opaca, caixa transparente, mutação, componentes e
+   sistema.
+4. SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.
