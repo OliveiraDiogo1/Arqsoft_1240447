@@ -30,6 +30,14 @@ class BibliographicSourceRegistryTest {
     }
 
     @Test
+    void duplicateConfiguredSourceFailsAtStartup() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new BibliographicSourceRegistry(
+                        List.of(source("google-books", null)),
+                        properties(List.of("google-books", "google-books"))));
+    }
+
+    @Test
     void duplicateSourceNameFailsAtStartup() {
         assertThrows(IllegalArgumentException.class,
                 () -> new BibliographicSourceRegistry(

@@ -4,9 +4,11 @@ import org.springframework.stereotype.Component;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.configuration.BibliographicProperties;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.model.BibliographicSource;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public final class BibliographicSourceRegistry {
@@ -22,7 +24,11 @@ public final class BibliographicSourceRegistry {
                 throw new IllegalArgumentException("Duplicate bibliographic source: " + name);
             }
         }
+        Set<String> configuredSources = new HashSet<>();
         for (String configured : properties.sources()) {
+            if (!configuredSources.add(configured)) {
+                throw new IllegalArgumentException("Duplicate configured bibliographic source: " + configured);
+            }
             if (!sourcesByName.containsKey(configured)) {
                 throw new IllegalArgumentException("Unknown bibliographic source: " + configured);
             }

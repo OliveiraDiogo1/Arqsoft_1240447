@@ -10,7 +10,7 @@ do projeto original não é reutilizado.
 
 - Base importada e a compilar.
 - Fase 1 (políticas de empréstimo) implementada.
-- `mvn clean test` executa 174 testes, todos verdes.
+- `mvn clean test` executa 179 testes, todos verdes.
 - Fase 2 (fontes bibliográficas e notificações) implementada.
 
 ## Como validar
@@ -218,9 +218,9 @@ Eventos:
 - `LENDING_RENEWED`;
 - `LENDING_RETURNED`.
 
-O `LendingServiceImpl` publica o evento depois de guardar a operação. A
-notificação é best-effort: uma falha externa é registada e não reverte a criação,
-renovação ou devolução.
+O `LendingServiceImpl` agenda a publicação do evento para depois do commit da
+operação. A notificação é best-effort: uma falha externa é registada e não reverte
+a criação, renovação ou devolução.
 
 Regras de envio:
 
@@ -255,13 +255,17 @@ empréstimos não muda.
 
 ### Integração e segurança
 
-- `LendingServiceImpl` passa a receber `NotificationService` e notifica após
-  `create`, `renew` e `setReturned`.
+- `LendingServiceImpl` passa a receber `NotificationService` e notifica depois do
+  commit de `create`, `renew` e `setReturned`.
 - `SecurityConfig` autoriza `GET /api/books/*/bibliographic` para leitor e
   bibliotecário.
 - Não há alterações ao esquema da base de dados.
 - As chamadas externas têm timeouts e não bloqueiam a operação por tempo
   indeterminado.
+- A chave Api Ninjas é lida da variável de ambiente `NINJAS_KEY`.
+- A chave privada JWT em `src/main/resources/rsa.private.key` destina-se apenas à
+  demonstração local e mantém-se porque a autenticação local depende dela. Não deve
+  ser usada em produção; a decisão de rotação fica a cargo do responsável pelo projeto.
 
 ### Testes
 
@@ -275,10 +279,12 @@ empréstimos não muda.
 - `LendingNotificationFactoryTest`: criação, renovação e devolução.
 - `EmailNotificationSenderTest`, `SmsNotificationSenderTest` e
   `WebhookNotificationSenderTest`: conteúdo e configuração.
-- `LendingServiceImplTest`: confirma que a notificação é chamada nas três
-  operações.
+- `LendingNotificationAfterCommitTest`: confirma as três notificações depois do
+  commit, sem transação de teste.
+- `NotificationSenderRegistryTest` e `BibliographicSourceRegistryTest`: rejeição de
+  canais e fontes duplicados na configuração.
 
-Validação integral: `mvn clean test` — 174 testes, 0 falhas, 0 erros e 0 ignorados.
+Validação integral: `mvn clean test` — 179 testes, 0 falhas, 0 erros e 0 ignorados.
 Os testes dos adaptadores HTTP usam `MockRestServiceServer`, sem chamadas às APIs
 externas reais.
 
@@ -292,7 +298,7 @@ externas reais.
 - Um canal novo não obriga a alterar `LendingServiceImpl`.
 - Criar, renovar e devolver um empréstimo gera os eventos esperados.
 - Uma falha de notificação não desfaz a operação de empréstimo.
-- Os testes novos e os anteriores passam: 174 testes no total.
+- Os testes novos e os anteriores passam: 179 testes no total.
 
 ### Limitações assumidas
 

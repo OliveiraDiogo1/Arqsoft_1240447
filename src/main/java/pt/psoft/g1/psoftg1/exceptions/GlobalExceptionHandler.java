@@ -126,7 +126,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@ResponseStatus(HttpStatus.BAD_GATEWAY)
 	public ResponseEntity<ApiCallError<String>> handleBibliographicSourceException(
 			final HttpServletRequest request, final BibliographicSourceException ex) {
-		logger.error("BibliographicSourceException {}\n", request.getRequestURI(), ex);
+		logger.error("BibliographicSourceException {}: {}", request.getRequestURI(), ex.getMessage());
 		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
 				.body(new ApiCallError<>("Bibliographic source unavailable", List.of(ex.getMessage())));
 	}

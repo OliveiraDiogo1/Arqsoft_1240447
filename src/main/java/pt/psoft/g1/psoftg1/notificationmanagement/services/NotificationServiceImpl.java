@@ -37,8 +37,8 @@ public class NotificationServiceImpl implements NotificationService {
                 }
                 sender.send(event);
             } catch (RuntimeException exception) {
-                LOGGER.warn("Notification via {} failed for lending {}",
-                        sender.channel(), event.lendingNumber(), exception);
+                LOGGER.warn("Notification via {} failed for lending {} ({})",
+                        sender.channel(), event.lendingNumber(), exception.getClass().getName());
             }
         }
     }

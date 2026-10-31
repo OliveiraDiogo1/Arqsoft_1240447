@@ -5,6 +5,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import pt.psoft.g1.psoftg1.bookmanagement.repositories.BookRepository;
 import pt.psoft.g1.psoftg1.exceptions.LendingForbiddenException;
 import pt.psoft.g1.psoftg1.exceptions.NotFoundException;
@@ -80,7 +82,7 @@ public class LendingServiceImpl implements LendingService{
                 decision.policyType());
 
         Lending saved = lendingRepository.save(lending);
-        notificationService.notify(saved, NotificationEventType.LENDING_CREATED);
+        notifyAfterCommit(saved, NotificationEventType.LENDING_CREATED);
         return saved;
     }
 
@@ -101,7 +103,7 @@ public class LendingServiceImpl implements LendingService{
         lending.renew(decision.terms().periodDays(), desiredVersion, decision.policyType());
 
         Lending saved = lendingRepository.save(lending);
-        notificationService.notify(saved, NotificationEventType.LENDING_RENEWED);
+        notifyAfterCommit(saved, NotificationEventType.LENDING_RENEWED);
         return saved;
     }
 
@@ -125,8 +127,22 @@ public class LendingServiceImpl implements LendingService{
         }
 
         Lending saved = lendingRepository.save(lending);
-        notificationService.notify(saved, NotificationEventType.LENDING_RETURNED);
+        notifyAfterCommit(saved, NotificationEventType.LENDING_RETURNED);
         return saved;
+    }
+
+    private void notifyAfterCommit(Lending lending, NotificationEventType type) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationService.notify(lending, type);
+                }
+            });
+        } else {
+            notificationService.notify(lending, type);
+        }
     }
 
     @Override

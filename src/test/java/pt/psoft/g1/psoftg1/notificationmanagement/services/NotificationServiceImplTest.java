@@ -2,6 +2,9 @@ package pt.psoft.g1.psoftg1.notificationmanagement.services;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import pt.psoft.g1.psoftg1.authormanagement.model.Author;
 import pt.psoft.g1.psoftg1.bookmanagement.model.Book;
 import pt.psoft.g1.psoftg1.genremanagement.model.Genre;
@@ -22,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(OutputCaptureExtension.class)
 class NotificationServiceImplTest {
 
     private final LendingNotificationFactory factory = new LendingNotificationFactory();
@@ -66,6 +70,18 @@ class NotificationServiceImplTest {
 
         assertDoesNotThrow(() -> service.notify(lending, NotificationEventType.LENDING_CREATED));
         assertTrue(sms.sent);
+    }
+
+    @Test
+    void senderFailureLogDoesNotExposeProviderMessage(CapturedOutput output) {
+        var broken = senderThatThrows("email", "provider-secret");
+        var service = serviceWith(List.of(broken), List.of("email"));
+
+        service.notify(lending, NotificationEventType.LENDING_CREATED);
+
+        assertFalse(output.getAll().contains("provider-secret"));
+        assertTrue(output.getAll().contains("email"));
+        assertTrue(output.getAll().contains(RuntimeException.class.getName()));
     }
 
     @Test
@@ -136,6 +152,10 @@ class NotificationServiceImplTest {
     }
 
     private NotificationSender senderThatThrows(String channel) {
+        return senderThatThrows(channel, "boom");
+    }
+
+    private NotificationSender senderThatThrows(String channel, String message) {
         return new NotificationSender() {
             @Override
             public String channel() {
@@ -148,7 +168,7 @@ class NotificationServiceImplTest {
 
             @Override
             public void send(LendingNotificationEvent event) {
-                throw new RuntimeException("boom");
+                throw new RuntimeException(message);
             }
         };
     }

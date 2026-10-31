@@ -1,23 +1,33 @@
 package pt.psoft.g1.psoftg1.bibliographicmanagement.infrastructure;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 import pt.psoft.g1.psoftg1.bibliographicmanagement.configuration.BibliographicProperties;
 import pt.psoft.g1.psoftg1.exceptions.BibliographicSourceException;
+import pt.psoft.g1.psoftg1.exceptions.GlobalExceptionHandler;
 
 import java.util.List;
 
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+@ExtendWith(OutputCaptureExtension.class)
 class GoogleBooksBibliographicSourceTest {
 
     @Test
@@ -77,6 +87,27 @@ class GoogleBooksBibliographicSourceTest {
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
         assertThrows(BibliographicSourceException.class, () -> source.findByIsbn("9789720706386"));
+        server.verify();
+    }
+
+    @Test
+    void googleFailureDoesNotExposeApiKeyInExceptionOrLog(CapturedOutput output) {
+        var restTemplate = new RestTemplate();
+        var server = MockRestServiceServer.bindTo(restTemplate).build();
+        var source = new GoogleBooksBibliographicSource(restTemplate, properties());
+        server.expect(requestTo(startsWith("https://www.googleapis.com/books/v1/volumes")))
+                .andRespond(request -> {
+                    throw new ResourceAccessException("I/O error on GET request for \"" + request.getURI() + "\"");
+                });
+
+        var exception = assertThrows(BibliographicSourceException.class,
+                () -> source.findByIsbn("9789720706386"));
+        var request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/api/books/9789720706386/bibliographic");
+        new GlobalExceptionHandler().handleBibliographicSourceException(request, exception);
+
+        assertFalse(exception.getMessage().contains("test-key"));
+        assertFalse(output.getAll().contains("test-key"));
         server.verify();
     }
 

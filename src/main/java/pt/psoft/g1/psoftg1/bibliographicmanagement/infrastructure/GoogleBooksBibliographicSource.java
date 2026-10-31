@@ -68,7 +68,7 @@ public class GoogleBooksBibliographicSource implements BibliographicSource {
                     List.of());
             return Optional.of(record);
         } catch (RestClientException e) {
-            throw new BibliographicSourceException("Google Books unavailable", e);
+            throw new BibliographicSourceException("Google Books unavailable");
         }
     }
 

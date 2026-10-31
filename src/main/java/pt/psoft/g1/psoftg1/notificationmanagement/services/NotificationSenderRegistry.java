@@ -4,9 +4,11 @@ import org.springframework.stereotype.Component;
 import pt.psoft.g1.psoftg1.notificationmanagement.configuration.NotificationProperties;
 import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationSender;
 
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Component
 public final class NotificationSenderRegistry {
@@ -20,7 +22,11 @@ public final class NotificationSenderRegistry {
                 throw new IllegalArgumentException("Duplicate notification channel: " + sender.channel());
             }
         }
+        Set<String> configuredChannels = new HashSet<>();
         for (String configured : properties.channels()) {
+            if (!configuredChannels.add(configured)) {
+                throw new IllegalArgumentException("Duplicate configured notification channel: " + configured);
+            }
             if (!sendersByChannel.containsKey(configured)) {
                 throw new IllegalArgumentException("Unknown notification channel: " + configured);
             }
