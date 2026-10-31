@@ -12,6 +12,8 @@ import pt.psoft.g1.psoftg1.lendingmanagement.model.Fine;
 import pt.psoft.g1.psoftg1.lendingmanagement.model.Lending;
 import pt.psoft.g1.psoftg1.lendingmanagement.repositories.FineRepository;
 import pt.psoft.g1.psoftg1.lendingmanagement.repositories.LendingRepository;
+import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationEventType;
+import pt.psoft.g1.psoftg1.notificationmanagement.services.NotificationService;
 import pt.psoft.g1.psoftg1.readermanagement.repositories.ReaderRepository;
 import pt.psoft.g1.psoftg1.shared.services.Page;
 
@@ -31,6 +33,7 @@ public class LendingServiceImpl implements LendingService{
     private final BookRepository bookRepository;
     private final ReaderRepository readerRepository;
     private final LendingPolicyService lendingPolicyService;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     @Value("${fineValuePerDayInCents}")
@@ -76,7 +79,9 @@ public class LendingServiceImpl implements LendingService{
                 fineValuePerDayInCents,
                 decision.policyType());
 
-        return lendingRepository.save(lending);
+        Lending saved = lendingRepository.save(lending);
+        notificationService.notify(saved, NotificationEventType.LENDING_CREATED);
+        return saved;
     }
 
     @Override
@@ -95,7 +100,9 @@ public class LendingServiceImpl implements LendingService{
         LendingPolicyDecision decision = lendingPolicyService.decideForRenewal(lending);
         lending.renew(decision.terms().periodDays(), desiredVersion, decision.policyType());
 
-        return lendingRepository.save(lending);
+        Lending saved = lendingRepository.save(lending);
+        notificationService.notify(saved, NotificationEventType.LENDING_RENEWED);
+        return saved;
     }
 
     @Override
@@ -117,7 +124,9 @@ public class LendingServiceImpl implements LendingService{
             fineRepository.save(fine);
         }
 
-        return lendingRepository.save(lending);
+        Lending saved = lendingRepository.save(lending);
+        notificationService.notify(saved, NotificationEventType.LENDING_RETURNED);
+        return saved;
     }
 
     @Override

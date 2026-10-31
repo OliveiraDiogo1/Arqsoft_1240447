@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.transaction.annotation.Transactional;
 import pt.psoft.g1.psoftg1.authormanagement.model.Author;
 import pt.psoft.g1.psoftg1.authormanagement.repositories.AuthorRepository;
@@ -17,6 +18,8 @@ import pt.psoft.g1.psoftg1.genremanagement.repositories.GenreRepository;
 import pt.psoft.g1.psoftg1.lendingmanagement.model.Lending;
 import pt.psoft.g1.psoftg1.lendingmanagement.model.policy.LendingPolicyType;
 import pt.psoft.g1.psoftg1.lendingmanagement.repositories.LendingRepository;
+import pt.psoft.g1.psoftg1.notificationmanagement.model.NotificationEventType;
+import pt.psoft.g1.psoftg1.notificationmanagement.services.NotificationService;
 import pt.psoft.g1.psoftg1.readermanagement.model.ReaderDetails;
 import pt.psoft.g1.psoftg1.readermanagement.repositories.ReaderRepository;
 import pt.psoft.g1.psoftg1.usermanagement.model.Reader;
@@ -27,6 +30,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 
 
 @Transactional
@@ -46,6 +52,8 @@ class LendingServiceImplTest {
     private GenreRepository genreRepository;
     @Autowired
     private AuthorRepository authorRepository;
+    @MockBean
+    private NotificationService notificationService;
 
     private Lending lending;
     private ReaderDetails readerDetails;
@@ -158,6 +166,8 @@ class LendingServiceImplTest {
         assertEquals(LendingPolicyType.STANDARD, created.getAppliedPolicy());
         assertEquals(15, created.getAppliedPeriodDays());
         assertEquals(LocalDate.now().plusDays(15), created.getLimitDate());
+
+        verify(notificationService).notify(any(Lending.class), eq(NotificationEventType.LENDING_CREATED));
     }
 
     @Test
@@ -186,6 +196,8 @@ class LendingServiceImplTest {
         assertEquals(14, renewed.getAppliedPeriodDays());
         assertEquals(1, renewed.getRenewalCount());
         assertEquals(limitBeforeRenewal.plusDays(14), renewed.getLimitDate());
+
+        verify(notificationService).notify(any(Lending.class), eq(NotificationEventType.LENDING_RENEWED));
     }
 
     @Test
@@ -246,6 +258,8 @@ class LendingServiceImplTest {
 
         assertDoesNotThrow(
                 () -> lendingService.setReturned(year + "/" + seq, request, notReturnedLending.getVersion()));
+
+        verify(notificationService).notify(any(Lending.class), eq(NotificationEventType.LENDING_RETURNED));
     }
 /*
     @Test
