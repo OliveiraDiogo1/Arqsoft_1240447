@@ -1,0 +1,29 @@
+@startuml
+left to right direction
+
+actor "Leitor" as Reader
+actor "Bibliotecário" as Librarian
+
+rectangle "LMS API\nSpring Boot 3.2" as LMS
+
+cloud "Google Books" as Google
+cloud "Open Library" as OpenLibrary
+cloud "SMTP" as SMTP
+cloud "Gateway SMS" as SMS
+cloud "Webhook" as Webhook
+
+Reader --> LMS : consulta\nempréstimos/políticas
+Librarian --> LMS : gestão de livros,\nleitores e empréstimos
+LMS --> Google : ISBN lookup
+LMS --> OpenLibrary : ISBN lookup
+LMS --> SMTP : email
+LMS --> SMS : SMS
+LMS --> Webhook : evento JSON
+
+note right of LMS
+  A aplicação mantém o modelo de biblioteca
+  e delega fontes externas e notificações
+  em portas/adaptadores.
+end note
+
+@enduml

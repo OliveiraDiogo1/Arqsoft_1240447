@@ -1,0 +1,20 @@
+@startuml
+node "Servidor da aplicação" {
+  artifact "projeto-arqsoft-1240447.jar" as App
+  database "H2\n(local/demo)" as H2
+  App --> H2 : JPA
+}
+
+cloud "Google Books" as Google
+cloud "Open Library" as OpenLibrary
+cloud "SMTP" as SMTP
+cloud "Gateway SMS" as SMS
+cloud "Webhook" as Webhook
+
+App --> Google : HTTPS
+App --> OpenLibrary : HTTPS
+App --> SMTP : SMTP
+App --> SMS : HTTPS
+App --> Webhook : HTTPS
+
+@enduml

@@ -12,6 +12,7 @@ do projeto original não é reutilizado.
 - Fase 1 (políticas de empréstimo) implementada.
 - Fase 2 (fontes bibliográficas e notificações) implementada.
 - Fase 3 (mutação, componentes e sistema) implementada.
+- Fase 4 (SAD/ADD, vistas, ADRs, rastreabilidade e demonstração) documentada.
 - `mvn clean test` executa 186 testes, todos verdes.
 - PIT: 133 mutantes, 104 mortos, 78% mutation score e 89% test strength.
 
@@ -368,6 +369,191 @@ evidence/phase3/pit.txt
 
 A suite total passou de 179 para **186 testes**.
 
+## Fase 4 — SAD/ADD, rastreabilidade e demonstração
+
+### 1. System-as-is
+
+O ponto de partida é o LMS REST desenvolvido em PSOFT. A aplicação é um
+monólito modular Spring Boot 3.2.5, Java 17, com camadas de API, serviços,
+domínio, repositórios e configuração:
+
+- API REST para livros, géneros, autores, leitores e empréstimos;
+- persistência JPA/H2;
+- autenticação e autorização com JWT;
+- integração externa com Api Ninjas para a citação de leitores;
+- módulos `authormanagement`, `bookmanagement`, `genremanagement`,
+  `lendingmanagement`, `readermanagement`, `usermanagement`, `shared`,
+  `external`, `configuration` e `bootstrapping`.
+
+Limitações do as-is:
+
+- regras de empréstimo não configuráveis e sem políticas alternativas;
+- inexistência de consulta bibliográfica externa;
+- inexistência de notificações de empréstimo;
+- forte acoplamento a detalhes da base e a APIs externas concretas;
+- cobertura de testes limitada e sem testes de mutação, componente ou sistema;
+- configuração e credenciais parcialmente embebidas no projeto.
+
+### 2. Requisitos e fatores arquiteturais
+
+O enunciado identifica três problemas: extensibilidade, configurabilidade e
+testabilidade. A especificação de políticas acrescenta regras quantitativas e
+seleção em runtime. A Fase 2 acrescenta fontes bibliográficas e notificações.
+
+| ID | Requisito / ASR | Atributo |
+|---|---|---|
+| ASR-01 | Políticas Standard e Adaptive com parâmetros externos | Configurabilidade |
+| ASR-02 | Selecionar a política aplicável em runtime | Extensibilidade |
+| ASR-03 | Acrescentar políticas com impacto limitado | Extensibilidade |
+| ASR-04 | Renovação coerente com a política aplicada | Correção |
+| ASR-05 | Evitar excesso de empréstimos em concorrência | Fiabilidade |
+| ASR-06 | Consultar Google Books e Open Library | Interoperabilidade |
+| ASR-07 | Escolher uma ou várias fontes no arranque | Configurabilidade |
+| ASR-08 | Acrescentar fontes com impacto limitado | Extensibilidade |
+| ASR-09 | Notificar por email, SMS e webhook | Interoperabilidade |
+| ASR-10 | Escolher um ou vários canais no arranque | Configurabilidade |
+| ASR-11 | Isolar falhas de fontes e canais | Fiabilidade |
+| ASR-12 | Testar classes, domínio, mutação, componentes e sistema | Testabilidade |
+| ASR-13 | Não expor credenciais em logs | Segurança |
+| ASR-14 | Rastrear requisitos, decisões, vistas, código e testes | Consistência |
+
+### 3. Processo ADD
+
+1. **Rever entradas**: enunciado, especificação de políticas, código base,
+   testes existentes e restrições de prazo.
+2. **Identificar e classificar requisitos**: ASR-01 a ASR-14.
+3. **Escolher os elementos a projetar**: políticas de empréstimo, consulta
+   bibliográfica, notificações e testes.
+4. **Escolher táticas e padrões**: encapsulamento, configuração, injeção de
+   dependências, portas/adaptadores, seleção por regras, transação e isolamento
+   de falhas.
+5. **Definir interfaces**: `LendingPolicy`, `BibliographicSource`,
+   `NotificationSender`, `LendingPolicyService`, `NotificationService`.
+6. **Verificar**: testes unitários, PIT, testes de componente e sistema.
+7. **Documentar**: ADRs, vistas, matriz de rastreabilidade e guião de
+   demonstração.
+
+### 4. Táticas, padrões e alternativas
+
+| Tática / padrão | Onde | Objetivo |
+|---|---|---|
+| Strategy | `LendingPolicy` + implementações | Encapsular políticas |
+| Registry + regras ordenadas | `LendingPolicyRegistry`, `LendingPolicySelector` | Seleção extensível |
+| Configuração validada | `LendingPoliciesProperties` | Falhar no arranque |
+| Repository | `BookRepository`, `LendingRepository`, etc. | Isolar persistência |
+| Ports & Adapters | `BibliographicSource`, `NotificationSender` | Isolar integrações |
+| Composite | `BibliographicServiceImpl` | Combinar fontes |
+| Transaction synchronization | `LendingServiceImpl` | Notificar após commit |
+| Fail-fast | propriedades e registries | Detetar configuração inválida |
+| Test doubles e PIT | testes | Verificar comportamento |
+
+Alternativas consideradas:
+
+- **Microserviços**: rejeitados; aumentariam deployment, latência e testes sem
+  resolver os drivers num prazo curto.
+- **`if/else` centralizado**: rejeitado; não permitia configuração nem extensão
+  sem alterar o serviço.
+- **Chamadas diretas às APIs no controller**: rejeitadas; misturavam HTTP,
+  domínio e apresentação.
+- **Notificação dentro da transação**: rejeitada; podia anunciar operações que
+  depois sofriam rollback.
+- **Fila/retry persistente**: adiada; não é necessária para o âmbito e aumentaria
+  a infraestrutura.
+
+### 5. Vistas e modelos
+
+- [Contexto](Docs/P1/visao-contexto.puml)
+- [Componentes](Docs/P1/visao-componentes.puml)
+- [Implantação](Docs/P1/visao-implantacao.puml)
+- [Dados](Docs/P1/visao-dados.puml)
+- [Classes das políticas](Docs/P1/classes-politicas.puml)
+- [Classes da Fase 2](Docs/P1/classes-fase2.puml)
+- [Sequência de criação de empréstimo](Docs/P1/sequencia-emprestimo-politica.puml)
+- [Sequência de renovação](Docs/P1/sequencia-renovacao.puml)
+- [Sequência bibliográfica](Docs/P1/sequencia-bibliografico.puml)
+- [Sequência de notificação](Docs/P1/sequencia-notificacao.puml)
+
+### 6. ADRs
+
+| ADR | Decisão | Estado |
+|---|---|---|
+| ADR-01 | Manter monólito modular com separação por camadas e módulos | Aceite |
+| ADR-02 | Representar políticas com Strategy, registry e regras de seleção | Aceite |
+| ADR-03 | Ler e validar parâmetros no arranque, sem constantes de negócio | Aceite |
+| ADR-04 | Reavaliar a política em cada criação/renovação | Aceite |
+| ADR-05 | Usar lock pessimista no leitor e `@Version`/`If-Match` no empréstimo | Aceite |
+| ADR-06 | Isolar fontes bibliográficas com portas/adaptadores e composição | Aceite |
+| ADR-07 | Recalcular o período Adaptive na renovação e usar `adaptive.max-renewals` | Aceite, a confirmar com o docente |
+| ADR-08 | Notificar após commit, best-effort, com canais selecionáveis | Aceite |
+| ADR-09 | Sanitizar erros externos e externalizar credenciais | Aceite |
+| ADR-10 | Complementar testes unitários com PIT, componentes e sistema | Aceite |
+
+### 7. Matriz de rastreabilidade
+
+| Requisito | Decisão / mecanismo | Componentes | Testes / evidência |
+|---|---|---|---|
+| ASR-01 | ADR-03 | `LendingPoliciesProperties`, `application.properties`, policies | `LendingPoliciesPropertiesTest`, `StandardLendingPolicyTest`, `AdaptiveLendingPolicyTest` |
+| ASR-02 | ADR-02, ADR-04 | `LendingPolicySelector`, `LendingServiceImpl` | `LendingPolicySelectorTest`, `LendingServiceImplTest` |
+| ASR-03 | ADR-02 | `LendingPolicy`, `LendingPolicyRegistry` | testes das políticas e do registry |
+| ASR-04 | ADR-07 | `Lending.renew`, `LendingPolicyService` | `LendingTest`, `LendingServiceImplTest` |
+| ASR-05 | ADR-05 | `ReaderRepository`, `LendingServiceImpl` | `LendingRepositoryIntegrationTest`, testes de serviço |
+| ASR-06 | ADR-06 | `GoogleBooksBibliographicSource`, `OpenLibraryBibliographicSource` | `GoogleBooksBibliographicSourceTest`, `OpenLibraryBibliographicSourceTest` |
+| ASR-07 | ADR-06 | `BibliographicSourceRegistry`, `BibliographicServiceImpl` | `BibliographicSourceRegistryTest`, `BibliographicServiceImplTest` |
+| ASR-08 | ADR-06 | `BibliographicSource`, adaptadores, registry | `BibliographicComponentTest` |
+| ASR-09 | ADR-08 | `EmailNotificationSender`, `SmsNotificationSender`, `WebhookNotificationSender` | testes dos três senders |
+| ASR-10 | ADR-08 | `NotificationSenderRegistry`, `NotificationServiceImpl` | `NotificationSenderRegistryTest`, `NotificationServiceImplTest` |
+| ASR-11 | ADR-08 | `LendingServiceImpl`, `NotificationServiceImpl` | `LendingNotificationAfterCommitTest`, testes do serviço |
+| ASR-12 | ADR-10 | suite de testes, PIT | 186 testes, 78% mutation score, 89% test strength |
+| ASR-13 | ADR-09 | `GlobalExceptionHandler`, `NotificationServiceImpl` | testes de sanitização e logs |
+| ASR-14 | ADR-01–ADR-10 | README, ADRs, vistas, matriz | esta secção + `evidence/phase3/` |
+
+### 8. Avaliação e riscos
+
+Pontos fortes:
+
+- políticas e integrações isoladas por interfaces;
+- configuração validada no arranque;
+- comportamento de concorrência explícito;
+- notificações fora da transação e best-effort;
+- 186 testes, PIT com 78% e testes de componente/sistema;
+- rastreabilidade entre requisito, decisão, componente e teste.
+
+Riscos e limitações:
+
+- Google Books/Open Library e canais reais não foram exercitados com credenciais
+  de produção; os testes usam HTTP simulado/doubles;
+- as notificações não são persistidas nem têm retry;
+- não há notificação agendada de atrasos;
+- a chave JWT de demonstração continua no repositório;
+- a chave Api Ninjas antiga deve ser revogada se estiver ativa;
+- PIT cobre apenas as classes selecionadas, não todo o sistema;
+- a interpretação da renovação Adaptive deve ser confirmada com o docente.
+
+### 9. Guião de demonstração
+
+```bash
+git switch fase-3
+mvn clean test
+mvn org.pitest:pitest-maven:mutationCoverage
+mvn spring-boot:run "-Dspring-boot.run.arguments=--spring.datasource.url=jdbc:h2:mem:projeto-arqsoft"
+```
+
+Demonstração:
+
+1. Login como bibliotecário/leitor e mostrar o token JWT.
+2. Mostrar `GET /api/lendings/policies/{year}/7` (Adaptive) e `{year}/8`
+   (Standard por rácio).
+3. Criar um empréstimo e mostrar a política/período aplicados.
+4. Renovar e mostrar `renewalCount`, `appliedPolicy` e `appliedPeriodDays`.
+5. Mostrar `GET /api/books/{isbn}/bibliographic` e explicar as fontes/merge.
+6. Criar/renovar/devolver e mostrar o log de notificação; explicar que email,
+   SMS e webhook estão configuráveis e que falhas não revertem o empréstimo.
+7. Mostrar os testes, PIT, ADRs, vistas e matriz de rastreabilidade.
+
+A resposta a `GET /api/books/{isbn}/bibliographic` depende de acesso externo; se
+a rede não estiver disponível, demonstrar com os testes que usam
+`MockRestServiceServer`.
+
 ## Estrutura
 
 ```
@@ -393,4 +579,4 @@ src/main/java/pt/psoft/g1/psoftg1/
 2. **Concluída** — Fontes bibliográficas Google Books/Open Library e notificações
    por email, SMS, webhook e log.
 3. **Concluída** — Testes de mutação, componentes e sistema.
-4. **Pendente** — SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.
+4. **Concluída** — SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.

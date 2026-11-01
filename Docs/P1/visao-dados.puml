@@ -1,0 +1,38 @@
+@startuml
+entity "Book" as Book {
+  * isbn
+  title
+  description
+  version
+}
+entity "ReaderDetails" as Reader {
+  * readerNumber
+  phoneNumber
+  gdprConsent
+  marketingConsent
+  thirdPartySharingConsent
+}
+entity "Lending" as Lending {
+  * lendingNumber
+  startDate
+  limitDate
+  returnedDate
+  renewalCount
+  appliedPolicy
+  appliedPeriodDays
+}
+entity "Fine" as Fine {
+  centsValue
+}
+
+Book ||--o{ Lending
+Reader ||--o{ Lending
+Lending ||--o| Fine : gera
+
+note right of Lending
+  appliedPolicy e appliedPeriodDays
+  registam a decisão da política.
+  As notificações não são persistidas.
+end note
+
+@enduml

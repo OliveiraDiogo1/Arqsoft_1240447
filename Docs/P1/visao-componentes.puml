@@ -1,0 +1,65 @@
+@startuml
+package "LMS API" {
+  package "API / Controllers" {
+    [BookController]
+    [LendingController]
+    [BibliographicController]
+    [ReaderController]
+  }
+
+  package "Application Services" {
+    [BookService]
+    [LendingService]
+    [LendingPolicyService]
+    [BibliographicService]
+    [NotificationService]
+  }
+
+  package "Domain" {
+    [Book]
+    [ReaderDetails]
+    [Lending]
+    [LendingPolicy]
+    [LendingPolicySelector]
+    [LendingNotificationEvent]
+  }
+
+  package "Ports / Adapters" {
+    [BibliographicSource]
+    [NotificationSender]
+    [GoogleBooksSource]
+    [OpenLibrarySource]
+    [EmailSender]
+    [SmsSender]
+    [WebhookSender]
+    [LogSender]
+  }
+
+  package "Persistence" {
+    [BookRepository]
+    [ReaderRepository]
+    [LendingRepository]
+  }
+}
+
+[BookController] --> [BookService]
+[LendingController] --> [LendingService]
+[LendingController] --> [LendingPolicyService]
+[BibliographicController] --> [BibliographicService]
+[BookService] --> [BookRepository]
+[LendingService] --> [LendingRepository]
+[LendingService] --> [ReaderRepository]
+[LendingService] --> [LendingPolicyService]
+[LendingService] --> [NotificationService]
+[LendingPolicyService] --> [LendingPolicySelector]
+[LendingPolicySelector] --> [LendingPolicy]
+[BibliographicService] --> [BibliographicSource]
+[NotificationService] --> [NotificationSender]
+[BibliographicSource] <|.. [GoogleBooksSource]
+[BibliographicSource] <|.. [OpenLibrarySource]
+[NotificationSender] <|.. [EmailSender]
+[NotificationSender] <|.. [SmsSender]
+[NotificationSender] <|.. [WebhookSender]
+[NotificationSender] <|.. [LogSender]
+
+@enduml
