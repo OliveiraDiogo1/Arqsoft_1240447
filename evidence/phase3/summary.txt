@@ -1,4 +1,4 @@
-ARQSOFT — Fase 3: mutação, componentes e sistema
+ARQSOFT - Fase 3: mutação, componentes e sistema
 
 SUITE
 - mvn clean test: 186 testes, 0 falhas, 0 erros, 0 ignorados

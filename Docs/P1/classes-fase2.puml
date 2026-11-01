@@ -1,5 +1,5 @@
 @startuml
-title Fontes bibliográficas e notificações — modelo de classes
+title Fontes bibliográficas e notificações - Modelo de classes
 
 package "bibliographicmanagement.model" {
   interface BibliographicSource {
@@ -7,7 +7,7 @@ package "bibliographicmanagement.model" {
     +findByIsbn(isbn: String): Optional<BibliographicRecord>
   }
 
-  record BibliographicRecord {
+  class BibliographicRecord <<record>> {
     isbn: String
     title: String
     authors: List<String>
@@ -37,7 +37,7 @@ package "bibliographicmanagement.api" {
     +lookup(isbn: String): ResponseEntity<BibliographicRecordView>
   }
 
-  record BibliographicRecordView
+  class BibliographicRecordView <<record>>
 }
 
 package "notificationmanagement.model" {

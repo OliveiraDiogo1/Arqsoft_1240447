@@ -1,5 +1,5 @@
 @startuml
-title Políticas de empréstimo — modelo de classes
+title Políticas de empréstimo - modelo de classes
 
 package "lendingmanagement.model.policy" {
   enum LendingPolicyType {
@@ -16,14 +16,14 @@ package "lendingmanagement.model.policy" {
   class StandardLendingPolicy
   class AdaptiveLendingPolicy
 
-  record StandardPolicyConfig {
+  class StandardPolicyConfig <<record>> {
     maxActiveLendings: int
     lendingPeriodDays: int
     maxRenewals: int
     renewalPeriodDays: int
   }
 
-  record AdaptivePolicyConfig {
+  class AdaptivePolicyConfig <<record>> {
     maxActiveLendings: int
     firstThreshold: int
     secondThreshold: int
@@ -33,24 +33,24 @@ package "lendingmanagement.model.policy" {
     maxRenewals: int
   }
 
-  record LendingPolicyContext {
+  class LendingPolicyContext <<record>> {
     activeLendings: int
     hasOverdue: boolean
     renewalCount: int
   }
 
-  record LendingTerms {
+  class LendingTerms <<record>> {
     periodDays: int
   }
 
-  record LendingHistory {
+  class LendingHistory <<record>> {
     completedLendings: int
     onTimeLendings: int
     hasOverdue: boolean
     +onTimeRatioPercent(): double
   }
 
-  record SelectionConfig {
+  class SelectionConfig <<record>> {
     historyPeriodMonths: int
     minCompletedLendings: int
     minOnTimeRatioPercent: double
