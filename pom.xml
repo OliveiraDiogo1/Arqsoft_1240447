@@ -122,6 +122,46 @@
 			</plugin>
 
 			<plugin>
+				<groupId>org.pitest</groupId>
+				<artifactId>pitest-maven</artifactId>
+				<version>1.15.8</version>
+				<configuration>
+					<targetClasses>
+						<param>pt.psoft.g1.psoftg1.lendingmanagement.model.policy.*</param>
+						<param>pt.psoft.g1.psoftg1.lendingmanagement.model.Lending</param>
+						<param>pt.psoft.g1.psoftg1.bibliographicmanagement.model.*</param>
+						<param>pt.psoft.g1.psoftg1.bibliographicmanagement.services.BibliographicServiceImpl</param>
+						<param>pt.psoft.g1.psoftg1.bibliographicmanagement.services.BibliographicSourceRegistry</param>
+						<param>pt.psoft.g1.psoftg1.notificationmanagement.model.*</param>
+						<param>pt.psoft.g1.psoftg1.notificationmanagement.services.LendingNotificationFactory</param>
+						<param>pt.psoft.g1.psoftg1.notificationmanagement.services.NotificationServiceImpl</param>
+						<param>pt.psoft.g1.psoftg1.notificationmanagement.services.NotificationSenderRegistry</param>
+					</targetClasses>
+					<targetTests>
+						<param>pt.psoft.g1.psoftg1.lendingmanagement.model.policy.*Test</param>
+						<param>pt.psoft.g1.psoftg1.lendingmanagement.model.LendingTest</param>
+						<param>pt.psoft.g1.psoftg1.bibliographicmanagement.services.*Test</param>
+						<param>pt.psoft.g1.psoftg1.bibliographicmanagement.infrastructure.*Test</param>
+						<param>pt.psoft.g1.psoftg1.notificationmanagement.services.*Test</param>
+					</targetTests>
+					<outputFormats>
+						<param>HTML</param>
+						<param>XML</param>
+					</outputFormats>
+					<timestampedReports>false</timestampedReports>
+					<mutationThreshold>75</mutationThreshold>
+					<coverageThreshold>80</coverageThreshold>
+				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-junit5-plugin</artifactId>
+						<version>1.2.1</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>

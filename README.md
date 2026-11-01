@@ -10,8 +10,10 @@ do projeto original não é reutilizado.
 
 - Base importada e a compilar.
 - Fase 1 (políticas de empréstimo) implementada.
-- `mvn clean test` executa 179 testes, todos verdes.
 - Fase 2 (fontes bibliográficas e notificações) implementada.
+- Fase 3 (mutação, componentes e sistema) implementada.
+- `mvn clean test` executa 186 testes, todos verdes.
+- PIT: 133 mutantes, 104 mortos, 78% mutation score e 89% test strength.
 
 ## Como validar
 
@@ -315,6 +317,57 @@ externas reais.
 - [Sequência de consulta bibliográfica](Docs/P1/sequencia-bibliografico.puml)
 - [Sequência de notificação](Docs/P1/sequencia-notificacao.puml)
 
+## Fase 3 — Mutação, componentes e sistema
+
+A Fase 3 acrescenta os níveis C3.3–C3.5 do enunciado.
+
+### C3.3 — Mutação
+
+O `pitest-maven` foi configurado para as classes desenvolvidas:
+
+- políticas de empréstimo (`model.policy.*`);
+- `Lending`;
+- modelo e serviços bibliográficos;
+- modelo, fábrica e registo de notificações.
+
+Resultados:
+
+| Indicador | Valor |
+|---|---:|
+| Mutantes gerados | 133 |
+| Mutantes mortos | 104 |
+| Mutation score | 78% |
+| Test strength | 89% |
+| Cobertura das classes mutadas | 88% |
+| Gate de mutação | 75% |
+| Gate de cobertura PIT | 80% |
+
+### C3.4 — Componentes
+
+- `BibliographicComponentTest`: controller + service + registry + adaptadores
+  Google Books/Open Library com `MockRestServiceServer`.
+- `LendingComponentTest`: controller + service + domínio + repositórios, com
+  `NotificationService` substituído.
+
+### C3.5 — Sistema
+
+`ArqsoftSystemTest` usa `@SpringBootTest(webEnvironment = RANDOM_PORT)` e
+`TestRestTemplate`:
+
+- login com sucesso e falha;
+- acesso sem token → `401`;
+- consulta de livro autenticada;
+- endpoint de política efetiva para o leitor de demonstração.
+
+### Evidências
+
+```
+evidence/phase3/mvn-test.txt
+evidence/phase3/pit.txt
+```
+
+A suite total passou de 179 para **186 testes**.
+
 ## Estrutura
 
 ```
@@ -339,6 +392,5 @@ src/main/java/pt/psoft/g1/psoftg1/
    externa e renovação.
 2. **Concluída** — Fontes bibliográficas Google Books/Open Library e notificações
    por email, SMS, webhook e log.
-3. Testes funcionais de caixa opaca, caixa transparente, mutação, componentes e
-   sistema.
-4. SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.
+3. **Concluída** — Testes de mutação, componentes e sistema.
+4. **Pendente** — SAD/ADD, vistas, ADRs, matriz de rastreabilidade e demonstração.

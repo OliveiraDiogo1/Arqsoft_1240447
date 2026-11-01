@@ -1,0 +1,31 @@
+ARQSOFT — Fase 3: mutação, componentes e sistema
+
+SUITE
+- mvn clean test: 186 testes, 0 falhas, 0 erros, 0 ignorados
+- 179 testes da Fase 2 preservados
+- 7 testes novos: 2 de componente + 5 de sistema
+
+COMPONENTES
+- BibliographicComponentTest: controller + service + registry + adaptadores
+  Google Books/Open Library com MockRestServiceServer
+- LendingComponentTest: controller + service + domínio + repositórios, com
+  NotificationService substituído
+
+SISTEMA
+- ArqsoftSystemTest: login, falha de login, acesso sem token, consulta de livro
+  autenticada e endpoint de política efetiva
+
+MUTAÇÃO
+- PIT 1.15.8
+- 133 mutantes gerados
+- 104 mortos
+- 78% mutation score
+- 89% test strength
+- 88% line coverage nas classes mutadas
+- gates: mutação >=75%, coverage >=80%
+
+FICHEIROS
+- evidence/phase3/mvn-test.txt
+- evidence/phase3/pit.txt
+- evidence/phase3/pit/mutations.xml
+- evidence/phase3/pit/index.html
